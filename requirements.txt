@@ -1,0 +1,8 @@
+flask
+pandas
+numpy
+matplotlib
+plotly
+dash
+gunicorn
+flask
