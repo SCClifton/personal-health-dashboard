@@ -65,7 +65,7 @@ def test_oura_oauth_callback_requires_matching_state(db_session, monkeypatch) ->
             "refresh_token": "refresh-token",
             "expires_in": 3600,
             "token_type": "bearer",
-            "scope": "personal daily spo2Daily",
+            "scope": "personal daily spo2",
         }
 
     monkeypatch.setattr("health_dashboard.api.routes.OuraConnector.exchange_code", fake_exchange_code)
@@ -84,7 +84,7 @@ def test_oura_oauth_callback_requires_matching_state(db_session, monkeypatch) ->
         assert "HttpOnly" in start.headers["set-cookie"]
         assert invalid.status_code == 400
         assert success.status_code == 200
-        assert success.json() == {"ok": True, "provider": "oura", "scope": "personal daily spo2Daily"}
+        assert success.json() == {"ok": True, "provider": "oura", "scope": "personal daily spo2"}
         token = db_session.get(OAuthToken, "oura")
         assert token is not None
         assert token.access_token == "access-token"
