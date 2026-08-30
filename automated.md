@@ -10,6 +10,18 @@ Run from the repo root:
 scripts/run_health_report_with_op_env.sh .venv/bin/python scripts/auto_health_report.py
 ```
 
+Install the local provider refresh agent once to run a credential-safe API sync
+every six hours with a seven-day overlap:
+
+```bash
+scripts/install_provider_refresh_agent.sh
+```
+
+The job retries naturally on its next interval if 1Password is unavailable.
+Imports remain idempotent, and private reports/logs stay in the local ignored
+directories. Remove only the schedule with
+`scripts/uninstall_provider_refresh_agent.sh`; it does not delete health data.
+
 Outputs are written to:
 
 ```text

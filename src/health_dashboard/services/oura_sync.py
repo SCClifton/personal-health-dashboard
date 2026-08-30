@@ -20,6 +20,7 @@ from health_dashboard.services.time import parse_datetime
 class OuraCollection:
     name: str
     params: str
+    max_window_days: int | None = None
 
 
 OURA_COLLECTIONS = [
@@ -27,7 +28,9 @@ OURA_COLLECTIONS = [
     OuraCollection("daily_sleep", "date"),
     OuraCollection("daily_readiness", "date"),
     OuraCollection("daily_activity", "date"),
-    OuraCollection("heartrate", "datetime"),
+    # Oura's heart-rate time series accepts only short datetime ranges. Seven
+    # day windows are conservative and make long initial backfills repeatable.
+    OuraCollection("heartrate", "datetime", max_window_days=7),
     OuraCollection("daily_spo2", "date"),
     OuraCollection("workout", "date"),
     OuraCollection("daily_stress", "date"),
@@ -252,6 +255,28 @@ def _params_for_collection(collection: OuraCollection, start: datetime | None, e
     return params
 
 
+def _collection_windows(
+    collection: OuraCollection,
+    start: datetime | None,
+    end: datetime | None,
+) -> list[tuple[datetime | None, datetime | None]]:
+    if not collection.max_window_days or start is None or end is None:
+        return [(start, end)]
+
+    current = _aware_utc(start)
+    finish = _aware_utc(end)
+    if current >= finish:
+        return [(current, finish)]
+
+    windows: list[tuple[datetime, datetime]] = []
+    window_size = timedelta(days=collection.max_window_days)
+    while current < finish:
+        window_end = min(current + window_size, finish)
+        windows.append((current, window_end))
+        current = window_end
+    return windows
+
+
 async def sync_oura(
     db: Session,
     settings: Settings,
@@ -265,10 +290,31 @@ async def sync_oura(
     batch_id = str(uuid4())
     imported = 0
     duplicates = 0
-    by_collection: dict[str, dict[str, int]] = {}
+    by_collection: dict[str, dict[str, Any]] = {}
+    collection_errors: list[str] = []
 
     for collection in OURA_COLLECTIONS:
-        records = await connector.fetch_paginated_collection(access_token, collection.name, params=_params_for_collection(collection, start, end))
+        records: list[dict[str, Any]] = []
+        collection_error: str | None = None
+        for window_start, window_end in _collection_windows(collection, start, end):
+            try:
+                records.extend(
+                    await connector.fetch_paginated_collection(
+                        access_token,
+                        collection.name,
+                        params=_params_for_collection(collection, window_start, window_end),
+                    )
+                )
+            except httpx.HTTPStatusError as exc:
+                status_code = exc.response.status_code
+                # Oura returns 401 as well as 403 for a valid token that lacks
+                # access to an individual collection (observed for daily_spo2).
+                # Preserve the other authorised collections and report the gap.
+                if status_code not in {400, 401, 403, 404}:
+                    raise
+                collection_error = f"HTTP {status_code}"
+                collection_errors.append(f"{collection.name}: {collection_error}")
+                break
         collection_imported = 0
         collection_duplicates = 0
         for record in records:
@@ -285,7 +331,10 @@ async def sync_oura(
             collection_duplicates += int(not created)
         imported += collection_imported
         duplicates += collection_duplicates
-        by_collection[collection.name] = {"imported": collection_imported, "duplicates": collection_duplicates}
+        collection_result: dict[str, Any] = {"imported": collection_imported, "duplicates": collection_duplicates}
+        if collection_error:
+            collection_result["error"] = collection_error
+        by_collection[collection.name] = collection_result
 
     rebuild_daily_features(db)
     state = db.get(ConnectorState, "oura")
@@ -294,8 +343,11 @@ async def sync_oura(
         db.add(state)
     state.status = "connected"
     state.last_sync_at = datetime.now(timezone.utc)
-    state.last_error = None
-    state.next_action = "Run Oura sync again to refresh sleep, readiness, activity, stress, SpO2, and device context."
+    state.last_error = "; ".join(collection_errors) if collection_errors else None
+    if collection_errors:
+        state.next_action = "Review Oura collection permissions; successful collections remain current and the sync will retry gaps."
+    else:
+        state.next_action = "Run Oura sync again to refresh sleep, readiness, activity, stress, SpO2, and device context."
     db.flush()
 
     return {

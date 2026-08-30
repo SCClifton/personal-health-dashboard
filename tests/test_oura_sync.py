@@ -9,6 +9,7 @@ from health_dashboard.connectors.oura import OURA_SCOPES, OuraConnector
 from health_dashboard.models import DailyFeature, NormalizedMetric, OAuthToken, RawEvent
 from health_dashboard.services.ingestion import rebuild_daily_features, store_raw_event
 from health_dashboard.services.oura_sync import (
+    OURA_COLLECTIONS,
     _valid_access_token,
     metrics_from_oura_record,
     source_record_id_for_oura_record,
@@ -27,6 +28,7 @@ def test_oura_authorization_url_uses_oauth_scope_contract() -> None:
     assert query["redirect_uri"] == ["http://localhost:8000/auth/oura/callback"]
     assert set(query["scope"][0].split()) == set(OURA_SCOPES.split())
     assert "spo2" in query["scope"][0].split()
+    assert "spo2Daily" not in query["scope"][0].split()
 
 
 def test_oura_sleep_metrics_are_cautious_and_do_not_map_sleep_hr_to_resting_hr() -> None:
@@ -168,3 +170,43 @@ async def test_sync_oura_stores_raw_records_and_normalized_metrics(db_session, m
     assert "daily_activity" in calls
     assert db_session.query(RawEvent).filter(RawEvent.provider == "oura").count() == 1
     assert db_session.query(NormalizedMetric).filter(NormalizedMetric.provider == "oura", NormalizedMetric.metric_name == "sleep_duration").count() == 1
+
+
+@pytest.mark.asyncio
+async def test_sync_oura_chunks_long_heart_rate_backfills_and_keeps_optional_collection_errors(db_session, monkeypatch) -> None:
+    token = OAuthToken(
+        provider="oura",
+        access_token="valid",
+        refresh_token="refresh",
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+    db_session.add(token)
+    db_session.commit()
+    calls: list[tuple[str, dict]] = []
+
+    class FakeOuraConnector:
+        def __init__(self, settings, token=None):
+            pass
+
+        async def fetch_paginated_collection(self, access_token, collection, params=None):
+            calls.append((collection, params or {}))
+            if collection == "daily_spo2":
+                request = httpx.Request("GET", "https://api.ouraring.com/v2/usercollection/daily_spo2")
+                response = httpx.Response(401, request=request)
+                raise httpx.HTTPStatusError("scope unavailable", request=request, response=response)
+            return []
+
+    monkeypatch.setattr("health_dashboard.services.oura_sync.OuraConnector", FakeOuraConnector)
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    end = start + timedelta(days=20)
+
+    result = await sync_oura(db_session, Settings(), start=start, end=end)
+
+    heart_rate_calls = [params for collection, params in calls if collection == "heartrate"]
+    assert len(heart_rate_calls) == 3
+    assert all(
+        datetime.fromisoformat(params["end_datetime"]) - datetime.fromisoformat(params["start_datetime"]) <= timedelta(days=7)
+        for params in heart_rate_calls
+    )
+    assert result["collections"]["daily_spo2"]["error"] == "HTTP 401"
+    assert set(result["collections"]) == {collection.name for collection in OURA_COLLECTIONS}

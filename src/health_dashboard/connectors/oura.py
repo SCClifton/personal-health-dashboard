@@ -13,6 +13,9 @@ from health_dashboard.models import OAuthToken
 OURA_AUTH_URL = "https://cloud.ouraring.com/oauth/authorize"
 OURA_TOKEN_URL = "https://api.ouraring.com/oauth/token"
 OURA_API_BASE = "https://api.ouraring.com/v2/usercollection"
+# Oura's generated OpenAPI page labels this scope ``spo2Daily``, while its
+# OAuth authentication page and live authorization server use ``spo2``. The
+# latter is the value that produces the extapi:spo2 grant used by daily_spo2.
 OURA_SCOPES = "personal daily heartrate workout tag session spo2"
 
 

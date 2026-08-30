@@ -476,15 +476,35 @@ async def strava_webhook_event(
 
 @router.get("/auth/oura/start")
 def oura_start(settings: Settings = Depends(get_settings)) -> RedirectResponse:
-    return RedirectResponse(OuraConnector(settings).authorization_url(state=secrets.token_urlsafe(16)))
+    state = secrets.token_urlsafe(32)
+    response = RedirectResponse(OuraConnector(settings).authorization_url(state=state))
+    response.set_cookie(
+        "oura_oauth_state",
+        state,
+        max_age=600,
+        httponly=True,
+        samesite="lax",
+    )
+    return response
 
 
 @router.get("/auth/oura/callback")
-async def oura_callback(code: str, db: Session = Depends(get_db), settings: Settings = Depends(get_settings)) -> dict:
+async def oura_callback(
+    request: Request,
+    code: str,
+    state: str,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> JSONResponse:
+    expected_state = request.cookies.get("oura_oauth_state")
+    if not expected_state or not secrets.compare_digest(expected_state, state):
+        raise HTTPException(status_code=400, detail="Invalid or expired Oura OAuth state")
     token_payload = await OuraConnector(settings).exchange_code(code)
     save_token(db, "oura", token_payload, oura_token_expiry(token_payload))
     db.commit()
-    return {"ok": True, "provider": "oura", "scope": token_payload.get("scope")}
+    response = JSONResponse({"ok": True, "provider": "oura", "scope": token_payload.get("scope")})
+    response.delete_cookie("oura_oauth_state")
+    return response
 
 
 def save_token(db: Session, provider: str, token_payload: dict, expires_at) -> OAuthToken:

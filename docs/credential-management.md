@@ -181,6 +181,22 @@ claim direct Oura data only when provider/source rows are from `oura`.
 ## Strava Fields
 
 The current Strava API credential item is `Private / Strava API Credential`.
+
+### Oura OAuth recovery snapshot
+
+The Oura app credentials and the user-authorised OAuth token are deliberately
+separate 1Password items:
+
+- app credentials: `Catherine & Sam / Personal Health Dashboard Oura API`
+- token recovery snapshot: `Catherine & Sam / Personal Health Dashboard Oura OAuth Token`
+
+The local SQLite `oauth_tokens` row remains the runtime source because Oura can
+rotate access and refresh tokens. After a new Oura authorisation, refresh the
+recovery snapshot without printing either secret:
+
+```bash
+HEALTH_DB_PATH=/absolute/path/to/health_dashboard.db scripts/backup_oura_oauth_token_to_op.sh
+```
 Make sure these labels are exact:
 
 ```text
