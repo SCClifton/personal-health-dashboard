@@ -1,0 +1,44 @@
+# Secrets and machine-local configuration
+.env
+.env.*
+!.env.example
+
+# Private health data, raw provider files, reports, and databases
+data/
+local_exports/
+logs/
+notebooks/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.csv
+*.fit
+*.gpx
+*.tcx
+*.zip
+*.log
+
+# Local browser and agent state
+.claude/
+.playwright-mcp/
+
+# Python environments and generated files
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# macOS metadata
+.DS_Store
+
+# Superseded local prototype retained outside the managed application
+app 2.py
+
+# Personal one-off analysis and exact-route helpers
+scripts/build_alexandria_commute_variants.py
+scripts/extract_everlab_results.py

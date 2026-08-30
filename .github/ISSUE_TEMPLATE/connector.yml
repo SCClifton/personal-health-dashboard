@@ -1,0 +1,40 @@
+name: Connector
+description: Add or improve a provider connector.
+title: "[Connector]: "
+labels: ["connector"]
+body:
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      options:
+        - Apple Health / Health Auto Export
+        - WHOOP
+        - Strava
+        - Oura
+        - Garmin
+        - Eight Sleep
+        - BP
+        - Weight
+        - Nutrition
+        - Medication
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What should work when this is done?
+    validations:
+      required: true
+  - type: textarea
+    id: docs
+    attributes:
+      label: Official docs checked
+      description: Link current official/public docs. Do not rely on unofficial scraping libraries.
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test coverage
+      description: Idempotency, units, timezone, status, source priority, or missing integration behavior.

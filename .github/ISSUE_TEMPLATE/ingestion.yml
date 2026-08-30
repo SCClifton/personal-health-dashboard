@@ -1,0 +1,26 @@
+name: Ingestion or Normalization
+description: Raw event storage, normalized metrics, daily features, imports, or source priority.
+title: "[Ingestion]: "
+labels: ["ingestion"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What data is wrong, missing, duplicated, or slow?
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Source data shape
+      description: Describe the payload/export shape without pasting sensitive health data.
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints
+      options:
+        - label: Preserve raw payloads exactly.
+        - label: Keep Apple Health as fallback, not overwrite richer direct-source records.
+        - label: Deduplicate imports by source ID or payload hash.
+        - label: Add or update tests.

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security or credential concern
+    url: https://github.com/SCClifton/personal-health-dashboard/security/advisories/new
+    about: Do not put secrets or personal health data in issues.
