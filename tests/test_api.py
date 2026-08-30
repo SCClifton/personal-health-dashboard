@@ -1,11 +1,12 @@
 from datetime import date, datetime, timedelta, timezone
+from urllib.parse import parse_qs, urlparse
 
 from fastapi.testclient import TestClient
 
 from health_dashboard.config import Settings, get_settings
 from health_dashboard.db import get_db
 from health_dashboard.main import app
-from health_dashboard.models import DailyFeature, NormalizedMetric, RawEvent
+from health_dashboard.models import DailyFeature, NormalizedMetric, OAuthToken, RawEvent
 from health_dashboard.services.ingestion import store_raw_event
 from health_dashboard.services.strava_sync import (
     source_record_id_for_strava_activity,
@@ -41,6 +42,52 @@ def test_runs_dashboard_renders_without_recent_runs(db_session) -> None:
         assert response.status_code == 200
         assert "Run Recovery" in response.text
         assert "No recent Strava runs" in response.text
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_oura_oauth_callback_requires_matching_state(db_session, monkeypatch) -> None:
+    def override_db():
+        yield db_session
+
+    def override_settings():
+        return Settings(
+            database_url="sqlite://",
+            oura_client_id="client-id",
+            oura_client_secret="client-secret",
+            oura_redirect_uri="http://localhost:8000/auth/oura/callback",
+        )
+
+    async def fake_exchange_code(self, code):
+        assert code == "authorization-code"
+        return {
+            "access_token": "access-token",
+            "refresh_token": "refresh-token",
+            "expires_in": 3600,
+            "token_type": "bearer",
+            "scope": "personal daily spo2Daily",
+        }
+
+    monkeypatch.setattr("health_dashboard.api.routes.OuraConnector.exchange_code", fake_exchange_code)
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_settings] = override_settings
+    try:
+        client = TestClient(app)
+        start = client.get("/auth/oura/start", follow_redirects=False)
+        state = parse_qs(urlparse(start.headers["location"]).query)["state"][0]
+
+        invalid = client.get("/auth/oura/callback?code=authorization-code&state=wrong")
+        success = client.get(f"/auth/oura/callback?code=authorization-code&state={state}")
+
+        assert start.status_code == 307
+        assert "oura_oauth_state=" in start.headers["set-cookie"]
+        assert "HttpOnly" in start.headers["set-cookie"]
+        assert invalid.status_code == 400
+        assert success.status_code == 200
+        assert success.json() == {"ok": True, "provider": "oura", "scope": "personal daily spo2Daily"}
+        token = db_session.get(OAuthToken, "oura")
+        assert token is not None
+        assert token.access_token == "access-token"
     finally:
         app.dependency_overrides.clear()
 

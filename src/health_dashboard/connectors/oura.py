@@ -13,7 +13,10 @@ from health_dashboard.models import OAuthToken
 OURA_AUTH_URL = "https://cloud.ouraring.com/oauth/authorize"
 OURA_TOKEN_URL = "https://api.ouraring.com/oauth/token"
 OURA_API_BASE = "https://api.ouraring.com/v2/usercollection"
-OURA_SCOPES = "personal daily heartrate workout tag session spo2"
+# Keep this aligned with the current Oura API v2 OAuth contract. Oura's
+# OpenAPI documentation names the daily blood-oxygen scope ``spo2Daily``;
+# the older authentication page used ``spo2``.
+OURA_SCOPES = "personal daily heartrate workout tag session spo2Daily"
 
 
 class OuraConnector:

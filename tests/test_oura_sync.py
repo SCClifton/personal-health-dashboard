@@ -26,7 +26,8 @@ def test_oura_authorization_url_uses_oauth_scope_contract() -> None:
     assert query["response_type"] == ["code"]
     assert query["redirect_uri"] == ["http://localhost:8000/auth/oura/callback"]
     assert set(query["scope"][0].split()) == set(OURA_SCOPES.split())
-    assert "spo2" in query["scope"][0].split()
+    assert "spo2Daily" in query["scope"][0].split()
+    assert "spo2" not in query["scope"][0].split()
 
 
 def test_oura_sleep_metrics_are_cautious_and_do_not_map_sleep_hr_to_resting_hr() -> None:
