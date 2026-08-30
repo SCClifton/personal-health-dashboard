@@ -17,7 +17,9 @@ from health_dashboard.services.source_concordance import build_source_concordanc
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Write a local source-concordance report for HRV and sleep sources.")
+    parser = argparse.ArgumentParser(
+        description="Write a local provider inventory, metric-coverage, and cross-source concordance report."
+    )
     parser.add_argument("--days", type=int, default=90, help="Lookback window in days.")
     parser.add_argument("--out", default=str(ROOT / "local_exports" / "source_concordance"), help="Output directory.")
     return parser.parse_args()
