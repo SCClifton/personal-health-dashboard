@@ -22,10 +22,8 @@ cat >"$tmp_plist" <<PLIST
   <array>
     <string>${project_dir}/scripts/run_health_report_with_op_env.sh</string>
     <string>${project_dir}/.venv/bin/python</string>
-    <string>${project_dir}/scripts/auto_health_report.py</string>
+    <string>${project_dir}/scripts/refresh_providers.py</string>
     <string>--days</string>
-    <string>180</string>
-    <string>--sync-days</string>
     <string>7</string>
   </array>
   <key>WorkingDirectory</key>

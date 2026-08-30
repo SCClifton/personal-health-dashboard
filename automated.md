@@ -10,8 +10,8 @@ Run from the repo root:
 scripts/run_health_report_with_op_env.sh .venv/bin/python scripts/auto_health_report.py
 ```
 
-Install the local provider refresh agent once to run the same credential-safe
-sync every six hours with a seven-day overlap:
+Install the local provider refresh agent once to run a credential-safe API sync
+every six hours with a seven-day overlap:
 
 ```bash
 scripts/install_provider_refresh_agent.sh
