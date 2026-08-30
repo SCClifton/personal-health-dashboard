@@ -162,6 +162,25 @@ Send the shared secret as either:
 
 The endpoint supports bulk arrays and incremental single-record uploads.
 
+Health Auto Export v1.1.0 also exposes an authenticated MCP server on the iPhone.
+Use it as a local recovery/query path, not as the primary unattended sync: the
+server stops when Health Auto Export enters the background. With the bearer token
+stored behind the local headers helper, a bounded catch-up is:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/sync_health_auto_export_mcp.py \
+  --start 2026-07-11 \
+  --end 2026-08-30
+```
+
+The command requests all eight MCP categories in seven-day chunks. Health metrics
+are stored as deterministic Apple Health points and normalized into daily features;
+the other category payloads are preserved locally as raw MCP records without
+guessing a clinical interpretation. Daily metric aggregation is the safe default.
+Pass `--raw-metrics` only when point-level history is genuinely required, because
+it can be very large. See `docs/health-auto-export-automation.md` for setup and
+limitations.
+
 ## OAuth Connectors
 
 WHOOP: create an app in the WHOOP Developer Dashboard, set the redirect URL, and request `offline read:recovery read:cycles read:workout read:sleep read:profile read:body_measurement`. Start auth at `/auth/whoop/start`, then ingest the last 30 days with:

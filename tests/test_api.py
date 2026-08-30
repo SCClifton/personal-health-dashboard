@@ -246,6 +246,81 @@ def test_apple_health_updated_daily_aggregate_keeps_latest_revision(db_session) 
         app.dependency_overrides.clear()
 
 
+def test_apple_health_v2_complex_daily_aggregates_are_normalized(db_session) -> None:
+    def override_db():
+        yield db_session
+
+    def override_settings():
+        return Settings(database_url="sqlite://", health_auto_export_shared_secret="test-secret")
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_settings] = override_settings
+    try:
+        client = TestClient(app)
+        payload = {
+            "data": {
+                "metrics": [
+                    {
+                        "name": "blood_pressure",
+                        "units": "mmHg",
+                        "data": [
+                            {
+                                "source": "Apple Health",
+                                "systolic": 121,
+                                "diastolic": 78,
+                                "date": "2026-08-29 00:00:00 +1000",
+                            }
+                        ],
+                    },
+                    {
+                        "name": "heart_rate",
+                        "units": "count/min",
+                        "data": [
+                            {
+                                "source": "Apple Watch",
+                                "Min": 45,
+                                "Avg": 69.5,
+                                "Max": 151,
+                                "date": "2026-08-29 00:00:00 +1000",
+                            }
+                        ],
+                    },
+                    {
+                        "name": "sleep_analysis",
+                        "units": "hr",
+                        "data": [
+                            {
+                                "source": "Apple Watch",
+                                "totalSleep": 7.25,
+                                "sleepEnd": "2026-08-29 07:15:00 +1000",
+                                "date": "2026-08-29 00:00:00 +1000",
+                            }
+                        ],
+                    },
+                ]
+            }
+        }
+
+        first = client.post("/ingest/apple-health", json=payload, headers={"Authorization": "Bearer test-secret"})
+        second = client.post("/ingest/apple-health", json=payload, headers={"Authorization": "Bearer test-secret"})
+
+        assert first.status_code == 200
+        assert first.json()["imported"] == 3
+        assert second.json()["duplicates"] == 3
+        metrics = db_session.query(NormalizedMetric).all()
+        by_name = {metric.metric_name: metric.value_numeric for metric in metrics}
+        assert by_name == {
+            "systolic_bp": 121,
+            "diastolic_bp": 78,
+            "heart_rate": 69.5,
+            "min_heart_rate": 45,
+            "max_heart_rate": 151,
+            "sleep_duration": 7.25,
+        }
+    finally:
+        app.dependency_overrides.clear()
+
+
 def seed_api_strava_run(db_session) -> None:
     start = datetime.now(timezone.utc) - timedelta(days=1)
     start_local = start.astimezone(timezone(timedelta(hours=10)))
