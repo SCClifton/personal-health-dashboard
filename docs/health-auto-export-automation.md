@@ -2,6 +2,41 @@
 
 This runbook keeps Apple Health ingestion reliable for the local dashboard.
 
+## REST and MCP Serve Different Jobs
+
+Keep the REST automation as the primary recurring path. iOS can defer background
+exports, but the REST automation can retry and catch up when the phone returns to
+the home network. The Health Auto Export v1.1.0 MCP server is useful for interactive
+queries and recovery backfills; it stops as soon as the app enters the background,
+so it cannot replace an unattended receiver.
+
+The local MCP configuration uses:
+
+```text
+Endpoint: http://192.168.4.110:9000/mcp
+Authentication: bearer token read from macOS Keychain by a local headers helper
+```
+
+Never add the bearer token to this repository, `.env`, shell history, or command
+arguments. Keep Health Auto Export open on its Server screen and keep the iPhone
+unlocked for the duration of a backfill.
+
+To recover a missing date range into the configured local database:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/sync_health_auto_export_mcp.py \
+  --start 2026-07-11 \
+  --end 2026-08-30
+```
+
+The sync is resumable: each MCP response and each metric point has a deterministic
+identity, so repeating a completed chunk records duplicates rather than double
+counting it. The default requests daily aggregates for every metric and preserves
+all other MCP categories as raw local records. ECGs, symptoms, state of mind,
+medications, cycle tracking, heart notifications, and workouts are not normalized
+until their schemas have explicit, tested mappings. Detailed workout routes are
+excluded by default; opt in with `--include-workout-routes` when needed.
+
 ## Architecture
 
 1. macOS launchd keeps the FastAPI receiver running on port `8000`.

@@ -54,9 +54,9 @@ def records_from_health_auto_export(payload: Any) -> list[dict[str, Any]]:
 
 
 def metrics_from_apple_record(record: dict[str, Any]) -> list[MetricValue]:
-    point_metric = metric_from_health_auto_export_v2_point_record(record)
-    if point_metric:
-        return [point_metric]
+    point_metrics = metrics_from_health_auto_export_v2_point_record(record)
+    if point_metrics:
+        return point_metrics
 
     nested_metrics = metrics_from_health_auto_export_v2(record)
     if nested_metrics:
@@ -114,8 +114,7 @@ def metric_point_records_from_health_auto_export_v2(payload: dict[str, Any]) -> 
             if not isinstance(point, dict):
                 continue
             observed = point.get("start") or point.get("startDate") or point.get("date")
-            value = point.get("qty")
-            if observed is None or value is None:
+            if observed is None:
                 continue
             record = {
                 "id": health_auto_export_point_id(name=name, unit=unit, point=point),
@@ -128,33 +127,62 @@ def metric_point_records_from_health_auto_export_v2(payload: dict[str, Any]) -> 
     return records
 
 
-def metric_from_health_auto_export_v2_point_record(record: dict[str, Any]) -> MetricValue | None:
+def metrics_from_health_auto_export_v2_point_record(record: dict[str, Any]) -> list[MetricValue]:
     if not isinstance(record.get("health_auto_export"), dict):
-        return None
+        return []
     if record["health_auto_export"].get("version") != "v2":
-        return None
+        return []
     point = record.get("point")
     if not isinstance(point, dict):
-        return None
-    value = point.get("qty")
+        return []
     observed = point.get("start") or point.get("startDate") or point.get("date")
-    if value is None or observed is None:
-        return None
-    metric = metric_from_payload(
-        "apple_health",
-        {
-            "metric_name": canonical_metric_name(str(record.get("metric_name"))),
-            "value": value,
-            "unit": record.get("unit"),
-            "observed_start": observed,
-            "observed_end": point.get("end") or point.get("endDate"),
-            "source": source_name(point.get("source")),
-            "confidence": 0.7,
-            "aggregation_window": "health_auto_export_v2",
-        },
-        default_source="apple_health",
-    )
-    return metric
+    if observed is None:
+        return []
+
+    name = str(record.get("metric_name") or "")
+    unit = record.get("unit")
+    definitions: list[tuple[str, Any, Any]] = []
+    if point.get("qty") is not None:
+        definitions.append((canonical_metric_name(name), point.get("qty"), point.get("end") or point.get("endDate")))
+    elif name == "blood_pressure":
+        definitions.extend(
+            [
+                ("systolic_bp", point.get("systolic"), None),
+                ("diastolic_bp", point.get("diastolic"), None),
+            ]
+        )
+    elif name == "heart_rate":
+        definitions.extend(
+            [
+                ("heart_rate", point.get("Avg"), None),
+                ("min_heart_rate", point.get("Min"), None),
+                ("max_heart_rate", point.get("Max"), None),
+            ]
+        )
+    elif name == "sleep_analysis":
+        definitions.append(("sleep_duration", point.get("totalSleep"), point.get("sleepEnd")))
+
+    metrics: list[MetricValue] = []
+    for metric_name, value, observed_end in definitions:
+        if value is None:
+            continue
+        metric = metric_from_payload(
+            "apple_health",
+            {
+                "metric_name": metric_name,
+                "value": value,
+                "unit": unit,
+                "observed_start": observed,
+                "observed_end": observed_end,
+                "source": source_name(point.get("source")),
+                "confidence": 0.7,
+                "aggregation_window": "health_auto_export_v2",
+            },
+            default_source="apple_health",
+        )
+        if metric:
+            metrics.append(metric)
+    return metrics
 
 
 def health_auto_export_point_id(*, name: Any, unit: Any, point: dict[str, Any]) -> str:
@@ -168,6 +196,8 @@ def health_auto_export_point_id(*, name: Any, unit: Any, point: dict[str, Any]) 
         "end": point.get("end") or point.get("endDate"),
         "value": point.get("qty"),
     }
+    if point.get("qty") is None:
+        identity["complex_value"] = point
     encoded = json.dumps(identity, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     return "hae:v2:metric:" + hashlib.sha256(encoded).hexdigest()
 
@@ -189,26 +219,13 @@ def metrics_from_health_auto_export_v2(record: dict[str, Any]) -> list[MetricVal
         for point in points:
             if not isinstance(point, dict):
                 continue
-            value = point.get("qty")
-            observed = point.get("start") or point.get("startDate") or point.get("date")
-            if value is None or observed is None:
-                continue
-            metric = metric_from_payload(
-                "apple_health",
-                {
-                    "metric_name": canonical_metric_name(str(name)),
-                    "value": value,
-                    "unit": unit,
-                    "observed_start": observed,
-                    "observed_end": point.get("end") or point.get("endDate"),
-                    "source": source_name(point.get("source")),
-                    "confidence": 0.7,
-                    "aggregation_window": "health_auto_export_v2",
-                },
-                default_source="apple_health",
-            )
-            if metric:
-                metrics.append(metric)
+            record = {
+                "metric_name": name,
+                "unit": unit,
+                "point": point,
+                "health_auto_export": {"version": "v2", "data_type": "metrics"},
+            }
+            metrics.extend(metrics_from_health_auto_export_v2_point_record(record))
     return metrics
 
 
