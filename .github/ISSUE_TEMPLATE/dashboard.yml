@@ -1,0 +1,33 @@
+name: Dashboard
+description: Dashboard views, charts, summaries, or UX improvements.
+title: "[Dashboard]: "
+labels: ["dashboard"]
+body:
+  - type: dropdown
+    id: view
+    attributes:
+      label: View
+      options:
+        - Overview
+        - GLP-1 Response
+        - Sleep & Recovery
+        - Training
+        - Correlation Lab
+        - Connector Status
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety
+      options:
+        - label: Copy treats correlations as exploratory, not diagnostic.
+        - label: Missing integrations render cleanly.
+        - label: Source labels remain visible where interpretation depends on source.

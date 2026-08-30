@@ -1,0 +1,19 @@
+name: Maintenance
+description: Tests, docs, tooling, performance, or repo workflow.
+title: "[Maintenance]: "
+labels: ["maintenance"]
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: Task
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+  - type: textarea
+    id: tests
+    attributes:
+      label: Tests or checks
