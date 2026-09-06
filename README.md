@@ -21,6 +21,7 @@ The app stores raw source payloads and normalized canonical metrics separately. 
 - Garmin status scaffold marked approval-gated.
 - Eight Sleep status scaffold marked fallback-only.
 - Manual/CSV import adapters for BP, weight, and nutrition, including MyFitnessPal zip/CSV exports.
+- Detailed local strength-session capture for planned exercises, performed sets, reps, loads, duration, distance, and effort.
 - First-class tirzepatide dose logging.
 - Goal-aware coaching dashboard for weight-loss progress, nutrition adherence, training/sleep context, and missing-data actions.
 - Read-only coaching snapshot exports for Claude, Cursor, and Codex.
@@ -257,6 +258,40 @@ The rich sync stores Strava summary, activity detail, laps, and streams as separ
 ```text
 http://localhost:8000/dashboard/runs
 ```
+
+## 98 Training Strength Sessions
+
+Runs and rides stay on their source-specific Strava and Wahoo FIT ingestion
+paths. For gym work, the project-local [`log-98-workout`](.codex/skills/log-98-workout/SKILL.md)
+skill reconciles a voice or typed recap with the read-only programme shown in the
+logged-in 98 Training Mac app.
+
+The capture preserves the original recap in `raw_events`, stores planned and
+performed work separately in `strength_sessions`, `strength_exercises`, and
+`strength_sets`, and emits source-labelled normalized metrics for session count,
+sets, reps, volume load, duration, distance, and effort. Reported loads retain
+their original unit and are also normalized to kilograms. These metrics provide
+the local data foundation for later recovery, weight, nutrition, and biomarker
+analysis; they are descriptive and not diagnostic.
+
+Validate a private JSON payload without writing it:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/log_strength_session.py /tmp/strength-session.json
+```
+
+Save it to the configured local database only after review:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/log_strength_session.py /tmp/strength-session.json --commit
+```
+
+The same `source_record_id` is idempotent. A repeated import reports a duplicate
+and does not create a second workout. Do not place transcripts, payloads, or
+database files in the repository.
+
+The local API equivalents are `POST /strength-sessions` and
+`GET /api/strength-sessions?days=90`.
 
 Useful JSON endpoints:
 

@@ -2,7 +2,7 @@ from datetime import date, datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from health_dashboard.db import Base
@@ -160,3 +160,86 @@ class DoseChangeContext(Base):
     follow_up_questions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class StrengthSession(Base):
+    __tablename__ = "strength_sessions"
+    __table_args__ = (
+        UniqueConstraint("source", "source_record_id", name="uq_strength_session_source_record"),
+        Index("ix_strength_session_started_source", "started_at", "source"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    raw_event_id: Mapped[str] = mapped_column(ForeignKey("raw_events.id"), unique=True, index=True)
+    source: Mapped[str] = mapped_column(String(64), default="manual_strength", index=True)
+    source_record_id: Mapped[str] = mapped_column(String(255), index=True)
+    source_kind: Mapped[str] = mapped_column(String(32), default="voice")
+    capture_status: Mapped[str] = mapped_column(String(32), default="partial", index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    duration_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    timezone: Mapped[str] = mapped_column(String(64))
+    timing_confidence: Mapped[str] = mapped_column(String(32), default="estimated")
+    program_name: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
+    program_session_name: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    program_week: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    program_block: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    program_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    session_rpe: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    exercises: Mapped[list["StrengthExercise"]] = relationship(
+        back_populates="session",
+        cascade="all, delete-orphan",
+        order_by="StrengthExercise.position",
+    )
+
+
+class StrengthExercise(Base):
+    __tablename__ = "strength_exercises"
+    __table_args__ = (UniqueConstraint("session_id", "position", name="uq_strength_exercise_position"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    session_id: Mapped[str] = mapped_column(ForeignKey("strength_sessions.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    series_name: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    name: Mapped[str] = mapped_column(String(255), index=True)
+    status: Mapped[str] = mapped_column(String(32), default="completed")
+    planned_sets: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    planned_reps: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    planned_tempo: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    planned_rest_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    target_intensity: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    planned_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    session: Mapped[StrengthSession] = relationship(back_populates="exercises")
+    sets: Mapped[list["StrengthSet"]] = relationship(
+        back_populates="exercise",
+        cascade="all, delete-orphan",
+        order_by="StrengthSet.position",
+    )
+
+
+class StrengthSet(Base):
+    __tablename__ = "strength_sets"
+    __table_args__ = (UniqueConstraint("exercise_id", "position", name="uq_strength_set_position"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    exercise_id: Mapped[str] = mapped_column(ForeignKey("strength_exercises.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32), default="completed")
+    reps: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    rep_multiplier: Mapped[float] = mapped_column(Float, default=1.0)
+    load_value: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    load_unit: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+    load_kg: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    load_multiplier: Mapped[float] = mapped_column(Float, default=1.0)
+    duration_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    distance_meters: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    rpe: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    is_warmup: Mapped[bool] = mapped_column(Boolean, default=False)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    exercise: Mapped[StrengthExercise] = relationship(back_populates="sets")

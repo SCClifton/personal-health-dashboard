@@ -20,7 +20,7 @@ The dashboard is an exploratory tracking system, not a diagnostic or treatment t
 | Weight | Direct scale export/API or explicit manual entry | Apple Health and nutrition-app weight | Manual/CSV ingestion and source priority exist | Confirm official paths for the active scales and add idempotent ingestion |
 | Food intake | Complete daily nutrition log/export | Manual summary | MyFitnessPal CSV/zip import exists | Make weekly completeness visible and agree targets outside the codebase |
 | Cycling | Local FIT activity plus device-recorded HR/cadence/power when present | Strava and Apple Health summaries | Strava summary/rich run ingestion exists | Add a Wahoo FIT importer, cycling metrics, and commute view |
-| Strength | Structured session, exercise, set, load, and effort data | WHOOP/Strava workout summary | Summary workout context only | Add a local detailed strength-session schema and capture flow |
+| Strength | Structured session, exercise, set, load, and effort data | WHOOP/Strava workout summary | Local detailed schema, API/CLI capture, and 98 voice-recap skill | Add strength detail to weekly review and exploratory lag analysis |
 | Sleep/recovery | WHOOP and direct Oura data kept source-separated | Apple Health; Eight Sleep as bed-context only | WHOOP/Oura connectors and concordance foundations exist | Complete local Oura authorisation and expose freshness/source agreement |
 | Goal progress | Locally configured active goal and daily weight trend | None | Goal model and coaching dashboard exist | Use a rolling trend, trajectory, completeness, and weekly review |
 
@@ -55,7 +55,7 @@ Measured values, device estimates, and modelled values must remain explicitly di
 - Add an idempotent Wahoo FIT raw-event importer.
 - Add cycling distance, duration, elevation, HR, cadence, measured power, and estimate provenance.
 - Add commute matching without committing precise route coordinates.
-- Add detailed gym session capture for exercises, sets, reps, load, duration, and optional effort notes.
+- Use the detailed local gym capture for exercises, sets, reps, load, duration, distance, and optional effort notes.
 - Join activity load to recovery context without implying causation.
 
 ### 3. Weekly operating review

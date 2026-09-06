@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable
 from uuid import uuid4
 
@@ -53,7 +53,7 @@ def source_record_id_from_payload(payload: dict[str, Any]) -> str | None:
 
 
 def observed_start_from_payload(payload: dict[str, Any]) -> datetime | None:
-    return parse_datetime(
+    value = parse_datetime(
         payload.get("observed_start")
         or payload.get("startDate")
         or payload.get("start")
@@ -61,11 +61,21 @@ def observed_start_from_payload(payload: dict[str, Any]) -> datetime | None:
         or payload.get("start_date_local")
         or payload.get("date")
         or payload.get("start_time")
+        or payload.get("started_at")
     )
+    return value.astimezone(timezone.utc) if value is not None else None
 
 
 def observed_end_from_payload(payload: dict[str, Any]) -> datetime | None:
-    return parse_datetime(payload.get("observed_end") or payload.get("endDate") or payload.get("end") or payload.get("end_date") or payload.get("end_time"))
+    value = parse_datetime(
+        payload.get("observed_end")
+        or payload.get("endDate")
+        or payload.get("end")
+        or payload.get("end_date")
+        or payload.get("end_time")
+        or payload.get("ended_at")
+    )
+    return value.astimezone(timezone.utc) if value is not None else None
 
 
 def store_raw_event(
