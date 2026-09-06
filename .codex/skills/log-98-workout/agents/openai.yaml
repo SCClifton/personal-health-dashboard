@@ -1,0 +1,4 @@
+interface:
+  display_name: "Log 98 Workout"
+  short_description: "Save voice-reported 98 gym sessions"
+  default_prompt: "Use $log-98-workout to reconcile my workout recap with the 98 Training app and save the completed session locally."

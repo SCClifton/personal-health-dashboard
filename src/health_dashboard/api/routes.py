@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from health_dashboard.api.schemas import ImportResult, TirzepatideDoseContextIn, TirzepatideDoseIn
+from health_dashboard.api.schemas import ImportResult, StrengthSessionIn, TirzepatideDoseContextIn, TirzepatideDoseIn
 from health_dashboard.config import Settings, get_settings
 from health_dashboard.connectors.apple_health import metrics_from_apple_record, records_from_health_auto_export
 from health_dashboard.connectors.csv_imports import parse_csv_metrics, parse_zip_metrics
@@ -48,6 +48,7 @@ from health_dashboard.services.medication import latest_dose_change_context, log
 from health_dashboard.services.oura_sync import sync_oura
 from health_dashboard.services.run_analysis import analyze_strava_run_recovery, recent_strava_runs
 from health_dashboard.services.strava_sync import sync_strava, sync_strava_runs
+from health_dashboard.services.strength import import_strength_session, recent_strength_sessions, serialize_strength_session
 from health_dashboard.services.sync_queue import provider_sync_slot, sync_queue_snapshot
 from health_dashboard.services.time import local_date
 from health_dashboard.services.whoop_sync import sync_whoop
@@ -173,6 +174,26 @@ def runs_dashboard(days: int = Query(default=14, ge=1, le=90), db: Session = Dep
 @router.get("/api/runs/recent")
 def recent_runs(days: int = Query(default=14, ge=1, le=90), db: Session = Depends(get_db)) -> list[dict]:
     return [asdict(item) for item in recent_strava_runs(db, days=days)]
+
+
+@router.post("/strength-sessions")
+def save_strength_session(payload: StrengthSessionIn, db: Session = Depends(get_db)) -> dict:
+    session, created = import_strength_session(db, payload)
+    db.commit()
+    return {
+        "imported": int(created),
+        "duplicates": int(not created),
+        "session": serialize_strength_session(session),
+    }
+
+
+@router.get("/api/strength-sessions")
+def strength_sessions(
+    days: int = Query(default=90, ge=1, le=3650),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    return [serialize_strength_session(item) for item in recent_strength_sessions(db, days=days, limit=limit)]
 
 
 @router.get("/api/runs/{activity_id}/recovery")

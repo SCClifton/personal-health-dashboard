@@ -23,6 +23,7 @@ A private, local-first personal health data platform. It ingests direct provider
 | What is the schema? | `src/health_dashboard/models.py` and `src/health_dashboard/schema.sql` |
 | How are source priorities applied? | `src/health_dashboard/services/normalization.py` |
 | How is ingestion stored? | `src/health_dashboard/services/ingestion.py` |
+| How are detailed gym sessions stored? | `src/health_dashboard/services/strength.py` and `.codex/skills/log-98-workout/SKILL.md` |
 | How do connectors report status? | `src/health_dashboard/connectors/status.py` |
 | How do multiple agents coordinate? | `docs/multi-agent-workflow.md` |
 | How are secrets handled? | `docs/credential-management.md` |

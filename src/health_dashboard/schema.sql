@@ -117,3 +117,62 @@ CREATE TABLE IF NOT EXISTS dose_change_contexts (
   created_at TIMESTAMPTZ NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS strength_sessions (
+  id VARCHAR(36) PRIMARY KEY,
+  raw_event_id VARCHAR(36) NOT NULL UNIQUE REFERENCES raw_events(id),
+  source VARCHAR(64) NOT NULL,
+  source_record_id VARCHAR(255) NOT NULL,
+  source_kind VARCHAR(32) NOT NULL,
+  capture_status VARCHAR(32) NOT NULL,
+  started_at TIMESTAMPTZ NOT NULL,
+  ended_at TIMESTAMPTZ,
+  duration_seconds DOUBLE PRECISION,
+  timezone VARCHAR(64) NOT NULL,
+  timing_confidence VARCHAR(32) NOT NULL,
+  program_name VARCHAR(128),
+  program_session_name VARCHAR(128),
+  program_week INTEGER,
+  program_block INTEGER,
+  program_notes TEXT,
+  session_rpe DOUBLE PRECISION,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL,
+  CONSTRAINT uq_strength_session_source_record UNIQUE (source, source_record_id)
+);
+
+CREATE TABLE IF NOT EXISTS strength_exercises (
+  id VARCHAR(36) PRIMARY KEY,
+  session_id VARCHAR(36) NOT NULL REFERENCES strength_sessions(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL,
+  series_name VARCHAR(128),
+  name VARCHAR(255) NOT NULL,
+  status VARCHAR(32) NOT NULL,
+  planned_sets VARCHAR(64),
+  planned_reps VARCHAR(64),
+  planned_tempo VARCHAR(32),
+  planned_rest_seconds DOUBLE PRECISION,
+  target_intensity VARCHAR(128),
+  planned_notes TEXT,
+  notes TEXT,
+  CONSTRAINT uq_strength_exercise_position UNIQUE (session_id, position)
+);
+
+CREATE TABLE IF NOT EXISTS strength_sets (
+  id VARCHAR(36) PRIMARY KEY,
+  exercise_id VARCHAR(36) NOT NULL REFERENCES strength_exercises(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL,
+  status VARCHAR(32) NOT NULL,
+  reps INTEGER,
+  rep_multiplier DOUBLE PRECISION NOT NULL,
+  load_value DOUBLE PRECISION,
+  load_unit VARCHAR(16),
+  load_kg DOUBLE PRECISION,
+  load_multiplier DOUBLE PRECISION NOT NULL,
+  duration_seconds DOUBLE PRECISION,
+  distance_meters DOUBLE PRECISION,
+  rpe DOUBLE PRECISION,
+  is_warmup BOOLEAN NOT NULL,
+  notes TEXT,
+  CONSTRAINT uq_strength_set_position UNIQUE (exercise_id, position)
+);
